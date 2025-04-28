@@ -1,2 +1,3 @@
-# hvtn302_manuscript_bcrseq_analysis
-Analysis code covering BCR sequencing data presented in the HVTN 302 manuscript.
+# HVTN 302 Manuscript BCR Sequencing Analysis
+
+This repository contains analysis code for BCR sequencing data presented in the HVTN 302 manuscript.
