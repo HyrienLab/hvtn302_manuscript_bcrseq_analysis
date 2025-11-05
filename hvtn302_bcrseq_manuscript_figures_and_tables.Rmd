@@ -1,0 +1,502 @@
+---
+title: HVTN 302 BCR Sequencing Figures and Tables for Manuscript
+author: Kellie MacPhee, Michael Duff, Zoe Moodie, Ollivier Hyrien
+date: "Document rendered on `r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+urlcolor: blue
+---
+
+```{r setup, echo=F}
+
+suppressPackageStartupMessages({
+  library(knitr)
+  library(kableExtra)
+  library(tidyverse)
+  library(patchwork)
+  library(VISCfunctions)
+})
+
+source("helper-functions.R", local = knitr::knit_global())
+
+# avoid console clutter from group by + summarize
+options(dplyr.summarise.inform = F)
+
+opts_chunk$set(echo = F,
+               message = T,
+               fig.width = 6,
+               fig.height = 6,
+               out.width = "100%",
+               dpi = 600,
+               dev = c("png", "cairo_pdf"),
+               fig.path = "graph/")
+
+options(knitr.kable.NA = '', # NA's will be blank in tables
+        knitr.table.format = 'latex')
+
+my_fig_theme <- theme_bw() + 
+  theme(
+    legend.position = "bottom", 
+    legend.margin = margin(unit = "cm"),
+    panel.grid.minor = element_blank(),
+    strip.background = element_rect(fill = "white"),
+    plot.title = element_text(hjust = 0.5, size = 18)
+    )
+theme_set(my_fig_theme)
+
+treatment_colors <- c(
+  'T1' = "#5EB794", # 100ug gp140
+  'T2' = "#C970AD", # 100ug gp151
+  'T3' = "#8B8AC3", # 100ug gp151 CD4KO
+  'T4' = "#3C7F66", # 250ug gp140
+  'T5' = "#812570", # 250ug gp151
+  'T6' = "#3A2F86"  # 250ug gp151 CD4KO
+)
+
+my_kable <- function(df, caption = "", font_size = 7, landscape = F, ...) {
+    
+  tab <- df %>% 
+    kable(booktabs = T,
+          longtable = T,
+          caption = caption,
+          escape = T,
+          ...) %>%
+    kable_styling(font_size = font_size,
+                  latex_options = c("HOLD_position", "repeat_header"))
+  
+  if (landscape) { tab <- tab %>% landscape() }
+  
+  return(tab)
+  
+}
+```
+
+```{r load_data}
+
+# NOTE: this path will need to be updated in order to reproduce analysis on other systems
+hvtn302_bcrseq_data_folder <- '/Volumes/trials/vaccine/p302/analysis/lab/pt_reports/bcrseq/manuscript_data'
+
+df_analysis <- data.table::fread(file.path(hvtn302_bcrseq_data_folder, "hvtn302_manuscript_bcrseq_data.csv"))
+```
+
+```{r tab_number_unpaired_sequences, eval=F}
+
+caption <- 'Number of B cells with heavy and/or light chain successfully sequenced'
+
+dfsum <- df_analysis %>% 
+  filter(!is.na(uid)) %>%
+  mutate(Group = paste(rx_code, ARM, sep = ': ')) %>% 
+  group_by(Group, uid, Week, `Sort Population`) %>% 
+  summarise(n_cells = n(), .groups = 'drop') %>%
+  pivot_wider(names_from = c(`Sort Population`, Week),
+              names_sort = T, 
+              values_from = n_cells) %>%
+  bind_rows(summarise(., 
+                      Group = 'Total',
+                      across(where(is.numeric), function(x) {sum(x, na.rm=T)}))) %>%
+  select(Group, uid, 
+         `Non-base binder_Week 0`, `Non-base binder_Week 10`, `Non-base binder_Week 26`, 
+         `Base binder_Week 0`, `Base binder_Week 10`, `Base binder_Week 26`, 
+         `Antigen negative_Week 0`, `Antigen negative_Week 10`, `Antigen negative_Week 26`)
+
+display_colnames <- c('Group', 'UID', rep(c('Week 0', 'Week 10', 'Week 26'), 3))
+header_list <- c(" " = 2, "Non-base binder" = 3, "Base binder" = 3, "Antigen negative" = 3)
+  
+dfsum %>%
+  my_kable(caption = caption, col.names = display_colnames) %>%
+  add_header_above(header_list) %>%
+  row_spec(nrow(dfsum), bold=T) %>%
+  column_spec(1, width = '3.5cm') %>%
+  column_spec(c(2, 5, 8, 11), border_right = T) %>%
+  collapse_rows(columns = 1, 
+                latex_hline = "major",
+                valign = 'top',
+                longtable_clean_cut = T)
+```
+
+```{r tab_number_paired_sequences}
+
+caption <- 'Number of paired heavy and light chain BCR sequences'
+
+dfsum <- df_analysis %>% 
+  filter(!is.na(uid), Paired > 0) %>%
+  mutate(Group = paste(rx_code, ARM, sep = ': ')) %>% 
+  group_by(Group, uid, Week, `Sort Population`) %>% 
+  summarise(n_cells = n(), .groups = 'drop') %>%
+  pivot_wider(names_from = c(`Sort Population`, Week),
+              names_sort = T, 
+              values_from = n_cells) %>%
+  bind_rows(summarise(., 
+                      Group = 'Total',
+                      across(where(is.numeric), function(x) {sum(x, na.rm=T)}))) %>%
+  select(Group, uid, 
+         `Non-base binder_Week 0`, `Non-base binder_Week 10`, `Non-base binder_Week 26`, 
+         `Base binder_Week 0`, `Base binder_Week 10`, `Base binder_Week 26`, 
+         `Antigen negative_Week 0`, `Antigen negative_Week 10`, `Antigen negative_Week 26`)
+
+display_colnames <- c('Group', 'UID', rep(c('Week 0', 'Week 10', 'Week 26'), 3))
+header_list <- c(" " = 2, "Non-base binder" = 3, "Base binder" = 3, "Antigen negative" = 3)
+  
+dfsum %>%
+  my_kable(caption = caption, col.names = display_colnames) %>%
+  add_header_above(header_list) %>%
+  row_spec(nrow(dfsum), bold=T) %>%
+  column_spec(1, width = '3.5cm') %>%
+  column_spec(c(2, 5, 8, 11), border_right = T) %>%
+  collapse_rows(columns = 1, 
+                latex_hline = "major",
+                valign = 'top',
+                longtable_clean_cut = T)
+```
+
+\newpage
+
+```{r fig_percent_mutation, fig.cap='Median percent mutation in heavy, kappa, and lambda chain V genes, by sort population (antigen negative, base binder, and non-base binder) and study visit (Weeks 0, 10, and 26) in study participants from all treatment groups (T2, T3, T5, T6).  Each dot represents one study participant, sized according to the number of sequences used to compute the median (note that the legend only shows example dot sizes for reference; dot size can take on more values than are shown).'}
+
+df_shm_per_person <- df_analysis %>% 
+  filter(!is.na(uid)) %>%
+  group_by(uid, rx_code, ARM, `Sort Population`, Week) %>%
+  summarize(Heavy = median(v_identity_pct_HC, na.rm=T), 
+            Kappa = median(v_identity_pct_KC, na.rm=T), 
+            Lambda = median(v_identity_pct_LC, na.rm=T),
+            n = n()) %>% 
+  tidyr::pivot_longer(cols=c('Heavy', 'Kappa', 'Lambda'),
+                      names_to='gene_type', values_to='median_v_pct_id') %>%
+  mutate(gene_type = factor(gene_type))
+
+plt_shm <- df_shm_per_person %>%
+  filter(`Sort Population` != 'Antigen negative') %>%
+  ggplot(aes(Week, (100 - median_v_pct_id)/100)) + 
+  facet_grid(gene_type~`Sort Population`, scales='fixed') + 
+  geom_boxplot(outlier.shape=NA, fill=NA, na.rm=TRUE, color='gray35') + 
+  geom_point(aes(color = rx_code, group = rx_code, size = n), 
+              position = position_jitterdodge(dodge.width=0.9, jitter.width=0, jitter.height=0),
+              stroke=0.1, alpha=0.7, na.rm=TRUE) + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_color_manual('', values=treatment_colors) +
+  scale_size('Number of sequences', range = c(1,3.5), breaks = c(5, 10, 50, 100)) +
+  labs(x = NULL, y = 'Median percent mutation (NT)') +
+  theme(legend.direction = "horizontal", legend.box = "vertical",
+        plot.title = element_text(hjust = 0.5, size = 14))
+
+plt_shm
+```
+
+\newpage
+
+```{r tab_percent_mutation}
+
+tab_shm_long <- df_shm_per_person %>%
+  ungroup() %>%
+  filter(`Sort Population` != 'Antigen negative') %>%
+  mutate(Group = paste(rx_code, ARM, sep = ': '),
+         uid = as.character(uid),
+         median_v_pct_mut = signif(100 - median_v_pct_id,2)) %>% 
+  select(-rx_code, -ARM, -n, -median_v_pct_id) 
+
+tab_shm <- tab_shm_long %>%
+  pivot_wider(names_from = c(`Sort Population`, Week),
+              names_sort = T, 
+              values_from = median_v_pct_mut) %>%
+  bind_rows(summarise(group_by(., gene_type), 
+                      uid = 'Median',
+                      across(where(is.numeric), function(x) {median(x, na.rm=T)}))) %>%
+  mutate(across(where(is.numeric), as.character)) %>%
+  relocate(Chain = gene_type, Group, UID = uid,  
+           `Non-base binder_Week 0`, `Non-base binder_Week 10`, `Non-base binder_Week 26`, 
+           `Base binder_Week 0`, `Base binder_Week 10`, `Base binder_Week 26`) %>%
+  arrange(Chain, Group, UID)
+
+header_list <- c(" " = 3, "Non-base binder" = 3, "Base binder" = 3)
+display_colnames <- c('Chain', 'Group', 'UID', rep(c('Week 0', 'Week 10', 'Week 26'), 2))
+caption <- 'Median percent mutation in the V segment'
+median_rows = which(tab_shm$UID == 'Median')
+  
+tab_shm %>%
+  my_kable(caption = caption, font_size = 6.4, col.names = display_colnames) %>%
+  add_header_above(header_list) %>%
+  column_spec(2, width = '3.5cm') %>%
+  column_spec(c(1, 3, 6, 9), border_right = T) %>%
+  collapse_rows(columns = 1:2, 
+                latex_hline = "custom",
+                custom_latex_hline = 1:2,
+                valign = 'top',
+                longtable_clean_cut = T) %>%
+  row_spec(median_rows, bold = T)
+```
+
+\newpage
+
+```{r tab_percent_mutation_comparisons_between_groups}
+
+caption <- "Percent mutation comparisons between base and non-base binders at a given study visit, performed using the Wilcoxon signed-rank test (two-sided) to account for paired data. Paired observations from at least 3 participants were required in order to run the test."
+
+shm_test_results_across_sort_pop <- tab_shm_long %>%
+  group_by(Week, gene_type) %>%
+  group_modify(
+    ~pairwise_test_cont(
+      x = .$median_v_pct_mut, group = .$`Sort Population`, id = .$uid,
+      method = 'wilcox', paired = TRUE, 
+      alternative = 'two.sided', num_needed_for_test = 3, digits = 3, 
+      verbose = FALSE
+    ) %>% as.data.frame
+  ) %>%  
+  ungroup() %>% 
+  mutate(
+    MagnitudeTest = pretty_pvalues(
+      MagnitudeTest, output_type = 'pandoc', sig_alpha = .05,
+      background = 'yellow',
+      bold = T,
+      digits = 3
+    )
+  ) %>% 
+  rename("Median (Range)" = Median_Min_Max, 'Mean (SD)' = Mean_SD, "p-value" = MagnitudeTest,
+         Chain = gene_type) %>%
+  relocate(Comparison, Chain, Week, `p-value`) %>%
+  select(-`Mean (SD)`, -PerfectSeparation) %>%
+  arrange(Comparison, Chain, Week)
+
+my_kable(shm_test_results_across_sort_pop, caption = caption) %>%
+  collapse_rows(1:2)
+```
+
+```{r tab_percent_mutation_comparisons_over_time}
+
+caption <- "Percent mutation comparisons between study visits within base or non-base binders, performed using the Wilcoxon signed-rank test (two-sided) to account for paired data. Paired observations from at least 3 participants were required in order to run the test."
+
+shm_test_results_across_time <- tab_shm_long %>%
+  group_by(`Sort Population`, gene_type) %>%
+  group_modify(
+    ~pairwise_test_cont(
+      x = .$median_v_pct_mut, group = .$Week, id = .$uid,
+      method = 'wilcox', paired = TRUE, 
+      alternative = 'two.sided', num_needed_for_test = 3, digits = 3, 
+      verbose = FALSE
+    ) %>% as.data.frame
+  ) %>%  
+  ungroup() %>% 
+  mutate(
+    MagnitudeTest = pretty_pvalues(
+      MagnitudeTest, output_type = 'pandoc', sig_alpha = .05,
+      background = 'yellow',
+      bold = T,
+      digits = 3
+    )
+  ) %>% 
+  rename("Median (Range)" = Median_Min_Max, 'Mean (SD)' = Mean_SD, "p-value" = MagnitudeTest,
+         Chain = gene_type) %>%
+  relocate(Comparison, Chain, `Sort Population`, `p-value`) %>%
+  select(-`Mean (SD)`, -PerfectSeparation) %>%
+  arrange(Comparison, Chain, `Sort Population`)
+
+my_kable(shm_test_results_across_time, caption = caption) %>%
+  collapse_rows(1:2)
+```
+
+\newpage
+
+```{r nontrivial-clonotype-size-distribution, eval=F}
+
+df_analysis %>% filter(!is.na(clone_id)) %>%
+  group_by(clone_id) %>% summarize(clone_size = n(), .groups='drop') %>%
+  select(clone_size) %>% table()
+
+df_analysis %>% filter(!is.na(clone_id)) %>% pull(clone_id) %>% unique() %>% length()
+```
+
+```{r fig_clonotype_size_by_rx_and_week, fig.cap='Observed clonotype sizes for each treatment group, time point, and sort population. Each line corresponds to one treatment group. Clonotypes containing B cells from multiple sort populations or treatment groups have been excluded.', message=F}
+
+df_clones_by_rx_and_week <- df_analysis %>%
+  filter(!is.na(clone_id), !is.na(`Sort Population`)) %>%
+  group_by(rx_code, Week, clone_id) %>% 
+  summarize(clone_size = n(),
+            n_sort_pop = n_distinct(`Sort Population`),
+            sort_pop = paste(unique(`Sort Population`), collapse = ', '),
+            .groups = 'drop') %>% 
+  filter(n_sort_pop == 1) %>%
+  group_by(rx_code, Week, sort_pop, clone_size) %>%
+  summarize(n_clones = n(), .groups = 'drop') %>%
+  mutate(n_cells = clone_size * n_clones) %>%
+  group_by(rx_code, Week, sort_pop) %>%
+  mutate(pct_clones = n_clones / sum(n_clones),
+         pct_cells = n_cells / sum(n_cells)) %>%
+  ungroup() 
+
+plt_clonotype <- df_clones_by_rx_and_week %>%
+  filter(sort_pop != 'Antigen negative') %>%
+  ggplot(aes(x=clone_size, y=n_clones, fill=rx_code, color=rx_code)) +
+  geom_point(alpha=0.7) + geom_line(alpha=0.7) +
+  facet_grid(Week~sort_pop, scales = 'free_y') +
+  scale_y_continuous(trans = 'log10') + # , labels = scales::percent) +
+  scale_x_continuous(breaks=seq(0, max(df_clones_by_rx_and_week$clone_size), by=1)) +
+  xlab('Number of cells in clonotype') + ylab('Number of clonotypes') +
+  scale_color_manual(values=treatment_colors) +
+  theme(legend.title = element_blank(),
+        legend.position = 'top',
+        plot.title = element_text(hjust = 0.5, size = 14))
+
+plt_clonotype
+```
+
+```{r fig_combined_shm_and_clonotype, fig.width = 12, fig.height = 6, fig.cap='Combined percent mutation and clonotype figure', message=F, eval=F}
+
+plt_shm_modfied <- plt_shm
+
+plt_clonotype_modified <- plt_clonotype + theme(legend.position = 'bottom')
+
+(plt_shm_modfied | plt_clonotype_modified) + plot_layout(widths = c(1,1))
+
+```
+
+\newpage
+
+```{r compute_gene_usage_estimates}
+
+df_v_gene_usage_prep <- df_analysis %>%
+  select(`Sort Population`, uid, Heavy = vGene_HC, Kappa = vGene_KC, Lambda = vGene_LC) %>%
+  pivot_longer(c(Heavy, Kappa, Lambda), names_to = 'chain', values_to = 'gene') %>%
+  filter(!is.na(`Sort Population`), !is.na(uid), !is.na(gene)) 
+
+genes_to_include <- df_v_gene_usage_prep %>%
+  filter(`Sort Population` != 'Antigen negative') %>%
+  group_by(`Sort Population`, chain, gene) %>% summarize(n = n(), .groups = 'drop') %>%
+  group_by(`Sort Population`, chain) %>% mutate(frac = n / sum(n)) %>% ungroup() %>%
+  filter(frac >= 0.01) %>%
+  pull(gene) %>%
+  unique()
+
+df_v_gene_usage <- df_v_gene_usage_prep %>% 
+  group_by(`Sort Population`, chain) %>%
+  reframe(compute_gene_prevalence(gene, uid, method = 'pl'))
+
+df_v_gene_usage <- df_v_gene_usage %>%
+  filter(gene %in% genes_to_include)
+```
+
+```{r fig_gene_usage, fig.height=8, fig.width=7, fig.cap='Germline V gene usage in each sort population, with 95 percent confidence intervals, estimated across all study participants and time points. Pseudo-likelihood method is used to obtain the point estimates and confidence intervals. V genes observed less than one percent of the time in the non-base binder and base binder repertoires are grouped together in the Other category.'}
+
+plot_gene_usage <- function(df) {
+  
+  shape_values <- c(1,19)
+  names(shape_values) <- c('Empirical Frequency', 'Estimate with CI')
+  
+  df %>% 
+    ggplot(aes(y = gene, color = `Sort Population`)) +
+    facet_grid(~chain) +
+    geom_linerange(aes(xmin = lower, xmax = upper), position = position_dodge(width = 0.7)) +
+    geom_point(aes(x = mean, shape = has_valid_ci), position = position_dodge(width = 0.7), size=0.8) +
+    scale_x_continuous(limits = c(-0.001,NA), labels = scales::percent) +
+    scale_y_discrete(limits=rev) +
+    scale_shape_manual(values = shape_values, guide='none') +
+    scale_color_manual(values = c('Antigen negative' = '#808080', 
+                                  'Base binder' = 'red', 
+                                  'Non-base binder' = 'blue')) +
+    labs(x = NULL, y = NULL) +
+    theme(legend.title = element_blank(),
+          legend.direction = 'horizontal',
+          legend.box = 'vertical',
+          axis.text.y = element_text(face = "italic"))
+  
+}
+
+df_v_gene_usage <- df_v_gene_usage %>%
+  mutate(has_valid_ci = ifelse((is.na(lower) | is.na(upper)), 
+                               'Empirical Frequency', 
+                               'Estimate with CI'),
+         gene = as.character(gene)) %>%
+  mutate(gene = factor(gene, levels = c(sort(unique(gene[gene!= 'Other'])), 'Other')))
+
+p1 <- df_v_gene_usage %>% filter(chain == 'Heavy') %>% plot_gene_usage() + theme(plot.margin = margin(5,8,5,5, "point"))
+p2 <- df_v_gene_usage %>% filter(chain == 'Kappa') %>% plot_gene_usage() + theme(plot.margin = margin(5,5,5,2, "point"))
+p3 <- df_v_gene_usage %>% filter(chain == 'Lambda') %>% plot_gene_usage() + theme(plot.margin = margin(5,5,5,5, "point"))
+
+(p1 | p2 | p3) + plot_layout(guides = 'collect')
+
+```
+
+```{r tab_gene_usage}
+
+tab_gene_usage <- df_v_gene_usage %>%
+  select(`Sort Population`, Chain = chain, `V Gene` = gene, mean, lower, upper) %>%
+  distinct() %>%
+  mutate(value = paste0(round(100*mean, 1), ' (', round(100*lower, 1), ', ', round(100*upper, 1), ')')) %>%
+  select(-mean, -lower, -upper) %>%
+  pivot_wider(names_from = `Sort Population`, values_from = value) %>%
+  arrange(Chain, `V Gene`)
+
+caption <- 'Germline V gene usage in each sort population, with 95 percent confidence interval indicated in parentheses, estimated across all study participants and time points. Pseudo-likelihood method is used to obtain the point estimates and confidence intervals.'
+
+tab_gene_usage %>%
+  my_kable(caption = caption) %>%
+  column_spec(c(2, 5), border_right = T) %>%
+  collapse_rows(columns = 1, 
+                latex_hline = "custom",
+                custom_latex_hline = 1,
+                valign = 'top',
+                longtable_clean_cut = T)
+```
+
+\newpage
+
+```{r top-clonotypes-table}
+
+caption <- 'Summary of clonotypes containing at least 4 cells. Numbers in parentheses indicate the number of cells in the clonotype with the listed feature.'
+
+df_top_clones <- df_analysis %>%
+  filter(!is.na(clone_id)) %>%
+  group_by(clone_id) %>% mutate(clone_size = n()) %>% ungroup() %>%
+  group_by(clone_size, clone_id, vGene_HC, vGene_KC, vGene_LC,
+           CDR3.IMGT.length_HC, CDR3.IMGT.length_KC, CDR3.IMGT.length_LC) %>%
+  summarize(
+    `mAbs Ordered` = my_paste_unique(mAb_number),
+    `Sort Populations` = my_column_summary(`Sort Population`),
+    UIDs = my_column_summary(uid),
+    Weeks = my_column_summary(Week),
+    Isotypes = my_column_summary(c_HC),
+    median_vh_pct_mut = median(100 - v_identity_pct_HC, na.rm=T)  %>% round(1),
+    median_vk_pct_mut = median(100 - v_identity_pct_KC, na.rm=T)  %>% round(1),
+    median_vl_pct_mut = median(100 - v_identity_pct_LC, na.rm=T)  %>% round(1),
+    max_vh_pct_mut = my_max(100 - v_identity_pct_HC),
+    max_vk_pct_mut = my_max(100 - v_identity_pct_KC),
+    max_vl_pct_mut = my_max(100 - v_identity_pct_LC)
+  ) %>%
+  ungroup() %>%
+  unite('V Genes (Heavy, Light)', 
+        c('vGene_HC', 'vGene_KC', 'vGene_LC'), 
+        sep=', ', na.rm=T, remove=T) %>%
+  unite('CDR3 Lengths (Heavy, Light)', 
+        c('CDR3.IMGT.length_HC', 'CDR3.IMGT.length_KC', 'CDR3.IMGT.length_LC'), 
+        sep=', ', na.rm=T, remove=T) %>%
+  unite('Median V % Mutation (Heavy, Light)', 
+        c('median_vh_pct_mut', 'median_vk_pct_mut', 'median_vl_pct_mut'), 
+        sep=', ', na.rm=T, remove=T) %>%
+  unite('Max V % Mutation (Heavy, Light)', 
+        c('max_vh_pct_mut', 'max_vk_pct_mut', 'max_vl_pct_mut'), 
+        sep=', ', na.rm=T, remove=T) %>%
+  mutate_at(c('V Genes (Heavy, Light)', 'CDR3 Lengths (Heavy, Light)',
+              'Median V % Mutation (Heavy, Light)', 'Max V % Mutation (Heavy, Light)'),
+            function(x) {gsub(', (-Inf)|(NA)', '', x)}) %>%
+  distinct() %>%
+  arrange(desc(clone_size)) %>%
+  rename(`Clone ID` = clone_id,
+         `Number of Cells` = clone_size) %>%
+  mutate(`Clone ID` = as.character(`Clone ID`)) %>%
+  filter(`Number of Cells` >= 4)
+
+df_top_clones %>%
+  my_kable(caption = caption,
+           landscape = T,
+           linesep = '\\midrule') %>%
+  column_spec(1, width = "0.3in") %>%
+  column_spec(2, width = "0.4in") %>%
+  column_spec(3, width = "0.7in") %>%
+  column_spec(4, width = "0.5in") %>%
+  column_spec(5, width = "0.8in") %>%
+  column_spec(6, width = "1.2in") %>%
+  column_spec(7, width = "1in") %>%
+  column_spec(8, width = "0.8in") %>%
+  column_spec(9, width = "0.75in") %>%
+  column_spec(10, width = "0.7in") %>%
+  column_spec(11, width = "0.5in")
+```

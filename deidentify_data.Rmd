@@ -1,0 +1,59 @@
+---
+title: "De-identifying HVTN 302 BCRseq Data for Publication with Manuscript"
+output: pdf_document
+author: "Kellie MacPhee"
+date: "`r Sys.Date()`"
+---
+
+```{r setup, message=FALSE}
+
+library(dplyr)
+
+trials_path <- '/Volumes/trials'
+hvtn302_bcrseq_path <-  file.path(
+  trials_path, 'vaccine', 'p302', 'analysis', 'lab', 'pt_reports', 'bcrseq'
+)
+
+df_analysis <- read.csv(file.path(
+  hvtn302_bcrseq_path, "adata", "hvtn302_adata_bcrseq.csv"
+))
+```
+
+```{r add-uid}
+
+df_pubid <- haven::read_sas(
+  file.path(hvtn302_bcrseq_path, 'adata', 'adslpre.sas7bdat')
+) |>
+  select(ptid = SUBJECT, PUBID)
+
+df_uid <- haven::read_sas(
+  file.path(trials_path, 'vaccine', 'p302', 's001', 'pre_distribution', 'qdata', 
+            'masterptid.sas7bdat')
+) |>
+  distinct()
+
+df_pubid_uid <- left_join(df_pubid, df_uid, by = join_by(ptid)) |>
+  select(pubid = PUBID, uid)
+
+df_analysis <- left_join(df_analysis, df_pubid_uid, by = join_by(pubid))
+```
+
+```{r subset-data}
+
+df_analysis_small <- df_analysis |>
+  select(uid, rx_code, ARM, Week,
+         `Sort Population` = `Sort.Population`, barcode, Paired, Light_Chain,
+         sequence_HC, sequence_KC, sequence_LC,
+         starts_with('v_identity_pct'), clone_id, starts_with('vGene'),
+         starts_with('CDR3.IMGT.length'), mAb_number, c_HC)
+
+glimpse(df_analysis_small)
+```
+
+```{r save-deidentified-data}
+write.csv(
+  df_analysis_small, 
+  file.path(hvtn302_bcrseq_path, "manuscript_data", "hvtn302_manuscript_bcrseq_data.csv"),
+  row.names = FALSE
+)
+```
